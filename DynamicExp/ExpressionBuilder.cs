@@ -1,14 +1,11 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Linq.Expressions;
+﻿using System.Linq.Expressions;
 using System.Reflection;
 using System.Text;
-using System.Threading.Tasks;
+
 
 namespace DynamicExp
 {
-   
+
     public static class ExpressionBuilder
     {
         public static IEnumerable<T> Where<T>(this IEnumerable<T> data, string str, params string[] additionalProps)
@@ -25,7 +22,7 @@ namespace DynamicExp
 
             try
             {
-                var tokens = MapToPostfix(GetTokens(str.ToLower()));
+                var tokens = MapToPostfix(GetTokens(str));
 
                 var stack = new Stack<Expression>();
 
@@ -51,7 +48,8 @@ namespace DynamicExp
                         case "<=":
                         case ">=":
                         case "in":
-                            var colName = tokens[i - 2].Replace("_", string.Empty);
+                        case "like":
+                            var colName = tokens[i - 2].Replace("_", string.Empty).ToLower();
                             var exp1 = GetExpression<T>(colName, item, tokens[i - 1], paramExpression, additionalProps);
                             if (exp1 != null)
                             {
@@ -71,7 +69,7 @@ namespace DynamicExp
                     expression = expression.ReduceAndCheck();
                 }
 
-                Console.WriteLine(expression);
+                //Console.WriteLine(expression);
                 var res = Expression.Lambda<Func<T, bool>>(expression, paramExpression);
 
                 return res;
@@ -85,8 +83,24 @@ namespace DynamicExp
                         BindingFlags.Static | BindingFlags.Public)
                         .Single(m => m.Name == nameof(Enumerable.Contains)
                             && m.GetParameters().Length == 2);
-
-        private static Expression GetExpression<T>(string colName, string @operator, string constraint, ParameterExpression paramExpression, params string[] props)
+        public static bool Like(string source, string find, int flag)
+        {
+            
+            if (flag==1)
+            { 
+                return source.Contains(find, StringComparison.CurrentCultureIgnoreCase);
+            }
+            else if (flag==2)
+            {
+                return source.EndsWith(find[1..], StringComparison.CurrentCultureIgnoreCase);
+            }
+            else if (flag==3)
+            {
+                return source.StartsWith(find, StringComparison.CurrentCultureIgnoreCase);
+            }
+            return source.Equals(find, StringComparison.CurrentCultureIgnoreCase);
+        }
+        private static Expression? GetExpression<T>(string colName, string @operator, string constraint, ParameterExpression paramExpression, params string[] props)
         {
             var type = typeof(T);
             var info = type.GetProperties(BindingFlags.Instance | BindingFlags.Public).FirstOrDefault(it => it.Name.ToLower() == colName);
@@ -116,7 +130,7 @@ namespace DynamicExp
             return null;
         }
 
-        private static Expression GetExpression<T>(
+        private static Expression? GetExpression<T>(
             PropertyInfo info,
             ParameterExpression paramExpression,
             string @operator,
@@ -133,6 +147,10 @@ namespace DynamicExp
             {
                 return GetInExp<T>(childInfo, constraint, childProperty);
             }
+            if (@operator == "like")
+            {
+                return GetLikeExp<T>(childInfo, constraint, childProperty);
+            }
             var constantExpression = GetConstantExpression(childInfo.PropertyType.Name, constraint);
 
             var expression = GetBinaryExpression(childProperty, @operator, constantExpression);
@@ -146,6 +164,10 @@ namespace DynamicExp
             if (@operator == "in")
             {
                 return GetInExp<T>(info, constraint, property);
+            }
+            if (@operator == "like")
+            {
+                return GetLikeExp<T>(info, constraint, property);
             }
             var constantExpression = GetConstantExpression(info.PropertyType.Name, constraint);
 
@@ -186,19 +208,19 @@ namespace DynamicExp
             switch (propInfo.PropertyType.Name)
             {
                 case "Int32":
-                    val = list.Select(it => Int32.Parse(it));
+                    val = list.Select(it => int.Parse(it));
                     break;
                 case "Int64":
-                    val = list.Select(it => Int64.Parse(it));
+                    val = list.Select(it => long.Parse(it));
                     break;
                 case "Single":
-                    val = list.Select(it => Single.Parse(it));
+                    val = list.Select(it => float.Parse(it));
                     break;
                 case "Double":
-                    val = list.Select(it => Double.Parse(it));
+                    val = list.Select(it => double.Parse(it));
                     break;
                 case "Decimal":
-                    val = list.Select(it => Decimal.Parse(it));
+                    val = list.Select(it => decimal.Parse(it));
                     break;
                 case "DateTime":
                     val = list.Select(it => DateTime.Parse(it));
@@ -211,6 +233,37 @@ namespace DynamicExp
                       contains,
                       Expression.Constant(val),
                       property);
+            return exp;
+        }
+        private static Expression GetLikeExp<T>(PropertyInfo propInfo, string constraint, MemberExpression property)
+        {
+            int len = constraint.Length, flag = 0;
+            string query = constraint;
+            if (constraint[0] == '%' && constraint[len - 1] == '%')
+            {
+                len--;
+                query = constraint[1..len];
+                flag = 1;
+            }
+            else if (constraint[0] == '%')
+            {
+                query = constraint[1..];
+                flag = 2;
+            }
+            else if (constraint[len - 1] == '%')
+            {
+                len--;
+                query = constraint[0..len];
+                flag = 3;
+            }
+            var like = typeof(ExpressionBuilder).GetMethod("Like")!;
+
+            var exp = Expression.Call(
+                      like,
+                      property,
+                      Expression.Constant(query),
+                      Expression.Constant(flag)
+                      );
             return exp;
         }
         private static int CheckOrEqual(string str, int curIndex, char ch, StringBuilder sb, List<string> tokens)
@@ -331,6 +384,7 @@ namespace DynamicExp
                     case "<=":
                     case ">=":
                     case "in":
+                    case "like":
                         stack.Push(item);
                         break;
                     case ")":
