@@ -8,15 +8,15 @@ namespace DynamicExp
 
     public static class ExpressionBuilder
     {
-        public static IEnumerable<T> Where<T>(this IEnumerable<T> data, string str, params string[] additionalProps)
+        public static IEnumerable<T> Where<T>(this IEnumerable<T> data, string str, params string[] relationalProps)
         {
-            var predicate = GetExpression<T>(str, additionalProps).Compile();
+            var predicate = GetExpression<T>(str, relationalProps).Compile();
             foreach (T value in data)
             {
                 if (predicate(value)) yield return value;
             }
         }
-        public static Expression<Func<T, bool>> GetExpression<T>(string str, params string[] additionalProps)
+        public static Expression<Func<T, bool>> GetExpression<T>(string str, params string[] relationalProps)
         {
             var paramExpression = Expression.Parameter(typeof(T));
 
@@ -50,7 +50,7 @@ namespace DynamicExp
                         case "in":
                         case "like":
                             var colName = tokens[i - 2].Replace("_", string.Empty).ToLower();
-                            var exp1 = GetExpression<T>(colName, item, tokens[i - 1], paramExpression, additionalProps);
+                            var exp1 = GetExpression<T>(colName, item.ToLower(), tokens[i - 1], paramExpression, relationalProps);
                             if (exp1 != null)
                             {
                                 stack.Push(exp1);
@@ -301,7 +301,7 @@ namespace DynamicExp
                             sb.Clear();
                         }
                         tokens.Add(ch.ToString());
-                        if (ch == '(' && tokens.Count > 2 && tokens[tokens.Count - 2] == "in")
+                        if (ch == '(' && tokens.Count > 2 && tokens[tokens.Count - 2].Equals("in", StringComparison.CurrentCultureIgnoreCase))
                         {
                             while (i + 1 < len && str[i + 1] != ')')
                             {
@@ -371,11 +371,15 @@ namespace DynamicExp
                     case "(":
                         stack.Push(item);
                         break;
+                    case "AND":
+                    case "And":
                     case "and":
+                    case "OR":
+                    case "Or":
                     case "or":
                         if (stack.Count > 0)
                             res.Add(stack.Pop());
-                        stack.Push(item);
+                        stack.Push(item.ToLower());
                         break;
                     case "=":
                     case "==":
@@ -383,9 +387,13 @@ namespace DynamicExp
                     case ">":
                     case "<=":
                     case ">=":
+                    case "IN":
+                    case "In":
                     case "in":
+                    case "LIKE":
+                    case "Like":
                     case "like":
-                        stack.Push(item);
+                        stack.Push(item.ToLower());
                         break;
                     case ")":
                         while (stack.Count > 0)

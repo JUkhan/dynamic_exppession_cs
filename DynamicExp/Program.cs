@@ -1,11 +1,10 @@
-﻿using System.Reflection;
+﻿
 
 namespace DynamicExp;
 
-record User(string firstName, int age, int postalCode, Address? address = null);
-record SDS(string content, string? segment = null, string? appName = null);
+record User(string firstName, int age, int postalCode, Address address );
 record Address(string location, int postalCode);
-record Dummy(int a, long km, float b, double c, decimal d, string s, bool b2, DateTime dt);
+record SDS(string content, string? segment = null, string? appName = null);
 
 class Program
 {
@@ -21,19 +20,19 @@ class Program
             };
         var listSDS = new List<SDS>
             {
-                new SDS("  first_name =  \"jasim khan\" "),
-                //new SDS("age <= 20 and first_name = arif"),
+                //new SDS("  first_name =  \"jasim khan\" "),
+                //new SDS("age <= 20 AND first_name = arif"),
                 //new SDS("age in ( 12, 18)"),
-                //new SDS("first_name in(\"jasim\", arif)"),
-                //new SDS("postalCode in(1, 103)"),
+                //new SDS("first_name In(\"jasim\", arif)"),
+                new SDS("postalCode IN (1, 103)"),
                 //new SDS("postalCode=1")
-                //new SDS("  first_name like  tal% "),
+                //new SDS("  first_name LIKE  tal% "),
             };
 
-        var str = String.Join(" or ", listSDS.Select(it => $"({it.content})"));
-        //var exp = ExpressionBuilder.GetExpression<User>(str,"address");
+        var query = String.Join(" Or ", listSDS.Select(it => $"({it.content})"));
+        //var exp = ExpressionBuilder.GetExpression<User>(query,"address");
 
-        foreach (var item in list.Where(str, "address"))
+        foreach (var item in list.Where(query))
         {
             Console.WriteLine(item);
         }
