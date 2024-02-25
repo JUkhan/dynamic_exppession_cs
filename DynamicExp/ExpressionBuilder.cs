@@ -1,6 +1,8 @@
-﻿using System.Linq.Expressions;
+﻿using Microsoft.EntityFrameworkCore;
+using System.Linq.Expressions;
 using System.Reflection;
 using System.Text;
+using static Microsoft.EntityFrameworkCore.DbLoggerCategory;
 
 
 namespace DynamicExp
@@ -8,14 +10,8 @@ namespace DynamicExp
 
     public static class ExpressionBuilder
     {
-        public static IEnumerable<T> Where<T>(this IEnumerable<T> data, string str, params string[] relationalProps)
-        {
-            var predicate = GetExpression<T>(str, relationalProps).Compile();
-            foreach (T value in data)
-            {
-                if (predicate(value)) yield return value;
-            }
-        }
+        public static IQueryable<T> Where<T>(this IQueryable<T> query, string str, params string[] relationalProps) => query.Where<T>(GetExpression<T>(str, relationalProps));
+
         public static Expression<Func<T, bool>> GetExpression<T>(string str, params string[] relationalProps)
         {
             var paramExpression = Expression.Parameter(typeof(T));
@@ -83,23 +79,25 @@ namespace DynamicExp
                         BindingFlags.Static | BindingFlags.Public)
                         .Single(m => m.Name == nameof(Enumerable.Contains)
                             && m.GetParameters().Length == 2);
+
         public static bool Like(string source, string find, int flag)
         {
-            
-            if (flag==1)
-            { 
+
+            if (flag == 1)
+            {
                 return source.Contains(find, StringComparison.CurrentCultureIgnoreCase);
             }
-            else if (flag==2)
+            else if (flag == 2)
             {
-                return source.EndsWith(find[1..], StringComparison.CurrentCultureIgnoreCase);
+                return source.EndsWith(find, StringComparison.CurrentCultureIgnoreCase);
             }
-            else if (flag==3)
+            else if (flag == 3)
             {
                 return source.StartsWith(find, StringComparison.CurrentCultureIgnoreCase);
             }
             return source.Equals(find, StringComparison.CurrentCultureIgnoreCase);
         }
+        
         private static Expression? GetExpression<T>(string colName, string @operator, string constraint, ParameterExpression paramExpression, params string[] props)
         {
             var type = typeof(T);
@@ -149,7 +147,7 @@ namespace DynamicExp
             }
             if (@operator == "like")
             {
-                return GetLikeExp<T>(childInfo, constraint, childProperty);
+                return LikeOperatorMode == LikeOperatorMode.InMemory? GetLikeExp<T>(childInfo, constraint, childProperty): GetSqlLikeExp<T>(childInfo, constraint, childProperty);
             }
             var constantExpression = GetConstantExpression(childInfo.PropertyType.Name, constraint);
 
@@ -167,7 +165,7 @@ namespace DynamicExp
             }
             if (@operator == "like")
             {
-                return GetLikeExp<T>(info, constraint, property);
+                return LikeOperatorMode==LikeOperatorMode.InMemory? GetLikeExp<T>(info, constraint, property): GetSqlLikeExp<T>(info, constraint, property);
             }
             var constantExpression = GetConstantExpression(info.PropertyType.Name, constraint);
 
@@ -235,6 +233,16 @@ namespace DynamicExp
                       property);
             return exp;
         }
+        
+        private static readonly MethodInfo MethodLike = typeof(DbFunctionsExtensions).GetMethods().Single(m => m.Name == nameof(DbFunctionsExtensions.Like)
+                                                                        && m.GetParameters().Length == 3);
+        private static Expression GetSqlLikeExp<T>(PropertyInfo propInfo, string constraint, MemberExpression property) => Expression.Call(
+                      MethodLike,
+                      Expression.Constant(EF.Functions),
+                      property,
+                      Expression.Constant(constraint)
+                      );
+
         private static Expression GetLikeExp<T>(PropertyInfo propInfo, string constraint, MemberExpression property)
         {
             int len = constraint.Length, flag = 0;
@@ -415,6 +423,11 @@ namespace DynamicExp
             }
             return res;
         }
-
+        public static LikeOperatorMode LikeOperatorMode = LikeOperatorMode.InMemory;
+        
+    }
+    public enum LikeOperatorMode
+    {
+        Sql, InMemory
     }
 }

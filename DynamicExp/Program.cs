@@ -1,5 +1,10 @@
 ﻿
 
+using DynamicExp.Data;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Diagnostics;
+using static Microsoft.EntityFrameworkCore.DbLoggerCategory;
+
 namespace DynamicExp;
 
 record User(string firstName, int age, int postalCode, Address address );
@@ -24,15 +29,15 @@ class Program
                 //new SDS("age <= 20 AND first_name = arif"),
                 //new SDS("age in ( 12, 18)"),
                 //new SDS("first_name In(\"jasim\", arif)"),
-                new SDS("postalCode IN (1, 103)"),
+                //new SDS("postalCode IN (1, 103)"),
                 //new SDS("postalCode=1")
-                //new SDS("  first_name LIKE  tal% "),
+                new SDS("  first_name LIKE  tal% "),
             };
 
         var query = String.Join(" Or ", listSDS.Select(it => $"({it.content})"));
-        //var exp = ExpressionBuilder.GetExpression<User>(query,"address");
+        var exp = ExpressionBuilder.GetExpression<User>(query,"address").Compile();
 
-        foreach (var item in list.Where(query))
+        foreach (var item in list.Where(exp))
         {
             Console.WriteLine(item);
         }
@@ -42,5 +47,30 @@ class Program
     static void Main(string[] args)
     {
         SampleExample();
+        //InitData();
+        //QueryFromDatabase();
+    }
+    static void QueryFromDatabase()
+    {
+        ExpressionBuilder.LikeOperatorMode = LikeOperatorMode.Sql;
+        using var db = new DataContext();
+
+        var ds = db.Products.Where("name like lap%");
+
+        foreach (var item in ds)
+        {
+            Console.WriteLine($"{item.Name} - {item.Price}");
+        }
+    }
+    static void InitData()
+    {
+   
+        using var db = new DataContext();
+       
+        
+        db.Products.Add(new Models.Product { Name = "Laptop", Price = 12 });
+        db.Products.Add(new Models.Product { Name = "Mobile", Price = 32 });
+        db.Products.Add(new Models.Product { Name = "Karate Mats", Price = 19 });
+        db.SaveChanges();
     }
 }

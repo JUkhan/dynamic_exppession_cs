@@ -90,3 +90,7 @@ What about `postalCode 103` which exist in `Address`(Fortunately `Where()` metho
 User { firstName = Talha, age = 12, postalCode = 1, address = Address { location = loc1, postalCode = 101 } }
 User { firstName = arif, age = 18, postalCode = 3, address = Address { location = loc2, postalCode = 103 } }
 ```
+Keep in mind by default `Like` operator mode is `InMemory`, make it `Sql` for fetching data from DB.
+```c#
+ ExpressionBuilder.LikeOperatorMode = LikeOperatorMode.Sql;
+```
