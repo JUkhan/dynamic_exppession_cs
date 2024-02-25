@@ -35,9 +35,9 @@ class Program
             };
 
         var query = String.Join(" Or ", listSDS.Select(it => $"({it.content})"));
-        var exp = ExpressionBuilder.GetExpression<User>(query,"address").Compile();
+        //var exp = ExpressionBuilder.GetExpression<User>(query).Compile();
 
-        foreach (var item in list.Where(exp))
+        foreach (var item in list.Where(query))
         {
             Console.WriteLine(item);
         }

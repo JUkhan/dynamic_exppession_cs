@@ -10,6 +10,14 @@ namespace DynamicExp
 
     public static class ExpressionBuilder
     {
+        public static IEnumerable<T> Where<T>(this IEnumerable<T> data, string str, params string[] relationalProps)
+        {
+            var predicate = GetExpression<T>(str, relationalProps).Compile();
+            foreach (T value in data)
+            {
+                if (predicate(value)) yield return value;
+            }
+        }
         public static IQueryable<T> Where<T>(this IQueryable<T> query, string str, params string[] relationalProps) => query.Where<T>(GetExpression<T>(str, relationalProps));
 
         public static Expression<Func<T, bool>> GetExpression<T>(string str, params string[] relationalProps)
