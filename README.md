@@ -21,6 +21,8 @@ For single word `"` `"` is optional but must for multiple words like `"jasim kha
 
 ```c#
 
+using DynamicExp.Data;
+using Microsoft.EntityFrameworkCore;
 
 namespace DynamicExp;
 
@@ -46,13 +48,13 @@ class Program
                 //new SDS("age <= 20 AND first_name = arif"),
                 //new SDS("age in ( 12, 18)"),
                 //new SDS("first_name In(\"jasim\", arif)"),
-                new SDS("postalCode IN (1, 103)"),
+                //new SDS("postalCode IN (1, 103)"),
                 //new SDS("postalCode=1")
-                //new SDS("  first_name LIKE  tal% "),
+                new SDS("  first_name LIKE  tal% "),
             };
 
         var query = String.Join(" Or ", listSDS.Select(it => $"({it.content})"));
-        //var exp = ExpressionBuilder.GetExpression<User>(query,"address");
+        //var exp = ExpressionBuilder.GetExpression<User>(query).Compile();
 
         foreach (var item in list.Where(query))
         {
@@ -64,6 +66,43 @@ class Program
     static void Main(string[] args)
     {
         SampleExample();
+        //InitData();
+        //QueryFromDatabase();
+    }
+    static void QueryFromDatabase()
+    {
+        ExpressionBuilder.LikeOperatorMode = LikeOperatorMode.Sql;
+        using var db = new DataContext();
+
+        foreach (var item in db.Products.Where("name like lap%"))
+        {
+            Console.WriteLine($"{item.Name} - {item.Price}");
+        }
+
+        foreach (var item in db.Orders.Include(t=>t.Customer).Where("first_name=abdur", "Customer"))
+        {
+            Console.WriteLine($"{item.Customer.FirstName} - {item.Customer.LastName}");
+        }
+    }
+    static void InitData()
+    {
+   
+        using var db = new DataContext();
+
+        db.Products.Add(new Models.Product { Name = "Laptop", Price = 12 });
+        db.Products.Add(new Models.Product { Name = "Mobile", Price = 32 });
+        db.Products.Add(new Models.Product { Name = "Karate Mats", Price = 19 });
+
+        db.Customers.Add(new Models.Customer { FirstName = "jasim", LastName = "khan", Address = "Tangail", Phone = "" });
+        db.Customers.Add(new Models.Customer { FirstName = "abdur", LastName = "rahman", Address = "Dhaka", Phone = "" });
+        db.SaveChanges();
+        db.Orders.Add(new Models.Order { CustomerId = 1, OrderPlaced = DateTime.Now, OrderedFulfill = DateTime.Now });
+        db.Orders.Add(new Models.Order { CustomerId = 2, OrderPlaced = DateTime.Now, OrderedFulfill = DateTime.Now });
+        db.SaveChanges();
+        db.OrderDetails.Add(new Models.OrderDetail { OrderId = 1, Quantity = 2, ProductId = 2 });
+        db.OrderDetails.Add(new Models.OrderDetail { OrderId = 1, Quantity = 3, ProductId = 3 });
+
+        db.SaveChanges();
     }
 }
 

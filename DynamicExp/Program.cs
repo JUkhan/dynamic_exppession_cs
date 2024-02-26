@@ -1,10 +1,8 @@
 ﻿
 
 using DynamicExp.Data;
-using DynamicExp.Models;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Diagnostics;
-using static Microsoft.EntityFrameworkCore.DbLoggerCategory;
+
 
 namespace DynamicExp;
 
