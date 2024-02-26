@@ -1,6 +1,7 @@
 ﻿
 
 using DynamicExp.Data;
+using DynamicExp.Models;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using static Microsoft.EntityFrameworkCore.DbLoggerCategory;
@@ -55,22 +56,34 @@ class Program
         ExpressionBuilder.LikeOperatorMode = LikeOperatorMode.Sql;
         using var db = new DataContext();
 
-        var ds = db.Products.Where("name like lap%");
-
-        foreach (var item in ds)
+        foreach (var item in db.Products.Where("name like lap%"))
         {
             Console.WriteLine($"{item.Name} - {item.Price}");
+        }
+
+        foreach (var item in db.Orders.Include(t=>t.Customer).Where("first_name=abdur", "Customer"))
+        {
+            Console.WriteLine($"{item.Customer.FirstName} - {item.Customer.LastName}");
         }
     }
     static void InitData()
     {
    
         using var db = new DataContext();
-       
-        
+
         db.Products.Add(new Models.Product { Name = "Laptop", Price = 12 });
         db.Products.Add(new Models.Product { Name = "Mobile", Price = 32 });
         db.Products.Add(new Models.Product { Name = "Karate Mats", Price = 19 });
+
+        db.Customers.Add(new Models.Customer { FirstName = "jasim", LastName = "khan", Address = "Tangail", Phone = "" });
+        db.Customers.Add(new Models.Customer { FirstName = "abdur", LastName = "rahman", Address = "Dhaka", Phone = "" });
+        db.SaveChanges();
+        db.Orders.Add(new Models.Order { CustomerId = 1, OrderPlaced = DateTime.Now, OrderedFulfill = DateTime.Now });
+        db.Orders.Add(new Models.Order { CustomerId = 2, OrderPlaced = DateTime.Now, OrderedFulfill = DateTime.Now });
+        db.SaveChanges();
+        db.OrderDetails.Add(new Models.OrderDetail { OrderId = 1, Quantity = 2, ProductId = 2 });
+        db.OrderDetails.Add(new Models.OrderDetail { OrderId = 1, Quantity = 3, ProductId = 3 });
+
         db.SaveChanges();
     }
 }
