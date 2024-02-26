@@ -10,14 +10,19 @@ namespace DynamicExp
 
     public static class ExpressionBuilder
     {
-        public static IEnumerable<T> Where<T>(this IEnumerable<T> data, string str, params string[] relationalProps)
+        public static IEnumerable<T> Where<T>(this IEnumerable<T> data, string str, bool isSql = false, params string[] relationalProps)
         {
+            ExpressionBuilder.isSql = isSql;
             var predicate = GetExpression<T>(str, relationalProps).Compile();
             return from T value in data
                    where predicate(value)
                    select value;
         }
-        public static IQueryable<T> Where<T>(this IQueryable<T> query, string str, params string[] relationalProps) => query.Where<T>(GetExpression<T>(str, relationalProps));
+        public static IQueryable<T> Where<T>(this IQueryable<T> query, string str, bool isSql=false, params string[] relationalProps)
+        {
+            ExpressionBuilder.isSql = isSql;
+            return query.Where<T>(GetExpression<T>(str, relationalProps));
+        }
 
         private static Expression<Func<T, bool>> GetExpression<T>(string str, params string[] relationalProps)
         {
@@ -153,7 +158,7 @@ namespace DynamicExp
             }
             if (@operator == "like")
             {
-                return LikeOperatorMode == LikeOperatorMode.InMemory? GetLikeExp(constraint, childProperty): GetSqlLikeExp(constraint, childProperty);
+                return !isSql ? GetLikeExp(constraint, childProperty): GetSqlLikeExp(constraint, childProperty);
             }
             var constantExpression = GetConstantExpression(childInfo.PropertyType.Name, constraint);
 
@@ -171,7 +176,7 @@ namespace DynamicExp
             }
             if (@operator == "like")
             {
-                return LikeOperatorMode==LikeOperatorMode.InMemory? GetLikeExp(constraint, property): GetSqlLikeExp(constraint, property);
+                return !isSql? GetLikeExp(constraint, property): GetSqlLikeExp(constraint, property);
             }
             var constantExpression = GetConstantExpression(info.PropertyType.Name, constraint);
 
@@ -429,7 +434,7 @@ namespace DynamicExp
             }
             return res;
         }
-        public static LikeOperatorMode LikeOperatorMode = LikeOperatorMode.InMemory;
+        private static bool isSql = false;
         
     }
     public enum LikeOperatorMode

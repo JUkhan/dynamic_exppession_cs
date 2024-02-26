@@ -6,7 +6,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace DynamicExp;
 
-record User(string firstName, int age, int postalCode, Address address );
+record User(string firstName, int age, int postalCode, Address address);
 record Address(string location, int postalCode);
 record SDS(string content, string? segment = null, string? appName = null);
 
@@ -34,7 +34,7 @@ class Program
             };
 
         var query = String.Join(" Or ", listSDS.Select(it => $"({it.content})"));
-        
+
 
         foreach (var item in list.Where(query))
         {
@@ -43,30 +43,32 @@ class Program
 
 
     }
+    
+
     static void Main(string[] args)
     {
         SampleExample();
-        //InitData();
+        InitData();
         //QueryFromDatabase();
     }
     static void QueryFromDatabase()
     {
-        ExpressionBuilder.LikeOperatorMode = LikeOperatorMode.Sql;
+       
         using var db = new DataContext();
 
-        foreach (var item in db.Products.Where("name like lap%"))
+        foreach (var item in db.Products.Where("name like lap%", isSql:true))
         {
             Console.WriteLine($"{item.Name} - {item.Price}");
         }
 
-        foreach (var item in db.Orders.Include(t=>t.Customer).Where("first_name=abdur", "Customer"))
+        foreach (var item in db.Orders.Include(t => t.Customer).Where("first_name = abdur", relationalProps: "Customer"))
         {
             Console.WriteLine($"{item.Customer.FirstName} - {item.Customer.LastName}");
         }
     }
     static void InitData()
     {
-   
+
         using var db = new DataContext();
 
         db.Products.Add(new Models.Product { Name = "Laptop", Price = 12 });
