@@ -2,7 +2,7 @@
 using System.Linq.Expressions;
 using System.Reflection;
 using System.Text;
-using static Microsoft.EntityFrameworkCore.DbLoggerCategory;
+
 
 
 namespace DynamicExp
@@ -13,14 +13,13 @@ namespace DynamicExp
         public static IEnumerable<T> Where<T>(this IEnumerable<T> data, string str, params string[] relationalProps)
         {
             var predicate = GetExpression<T>(str, relationalProps).Compile();
-            foreach (T value in data)
-            {
-                if (predicate(value)) yield return value;
-            }
+            return from T value in data
+                   where predicate(value)
+                   select value;
         }
         public static IQueryable<T> Where<T>(this IQueryable<T> query, string str, params string[] relationalProps) => query.Where<T>(GetExpression<T>(str, relationalProps));
 
-        public static Expression<Func<T, bool>> GetExpression<T>(string str, params string[] relationalProps)
+        private static Expression<Func<T, bool>> GetExpression<T>(string str, params string[] relationalProps)
         {
             var paramExpression = Expression.Parameter(typeof(T));
 
@@ -73,7 +72,6 @@ namespace DynamicExp
                     expression = expression.ReduceAndCheck();
                 }
 
-                //Console.WriteLine(expression);
                 var res = Expression.Lambda<Func<T, bool>>(expression, paramExpression);
 
                 return res;
@@ -155,7 +153,7 @@ namespace DynamicExp
             }
             if (@operator == "like")
             {
-                return LikeOperatorMode == LikeOperatorMode.InMemory? GetLikeExp<T>(childInfo, constraint, childProperty): GetSqlLikeExp<T>(childInfo, constraint, childProperty);
+                return LikeOperatorMode == LikeOperatorMode.InMemory? GetLikeExp(constraint, childProperty): GetSqlLikeExp(constraint, childProperty);
             }
             var constantExpression = GetConstantExpression(childInfo.PropertyType.Name, constraint);
 
@@ -173,7 +171,7 @@ namespace DynamicExp
             }
             if (@operator == "like")
             {
-                return LikeOperatorMode==LikeOperatorMode.InMemory? GetLikeExp<T>(info, constraint, property): GetSqlLikeExp<T>(info, constraint, property);
+                return LikeOperatorMode==LikeOperatorMode.InMemory? GetLikeExp(constraint, property): GetSqlLikeExp(constraint, property);
             }
             var constantExpression = GetConstantExpression(info.PropertyType.Name, constraint);
 
@@ -183,12 +181,12 @@ namespace DynamicExp
         {
             return typeName switch
             {
-                "Int32" => Expression.Constant(Int32.Parse(constraint)),
-                "Int64" => Expression.Constant(Int64.Parse(constraint)),
-                "Single" => Expression.Constant(Single.Parse(constraint)),
-                "Double" => Expression.Constant(Double.Parse(constraint)),
-                "Decimal" => Expression.Constant(Decimal.Parse(constraint)),
-                "Boolean" => Expression.Constant(Boolean.Parse(constraint)),
+                "Int32" => Expression.Constant(int.Parse(constraint)),
+                "Int64" => Expression.Constant(long.Parse(constraint)),
+                "Single" => Expression.Constant(float.Parse(constraint)),
+                "Double" => Expression.Constant(double.Parse(constraint)),
+                "Decimal" => Expression.Constant(decimal.Parse(constraint)),
+                "Boolean" => Expression.Constant(bool.Parse(constraint)),
                 "DateTime" => Expression.Constant(DateTime.Parse(constraint)),
                 _ => Expression.Constant(constraint, typeof(string))
             };
@@ -229,7 +227,7 @@ namespace DynamicExp
                     val = list.Select(it => decimal.Parse(it));
                     break;
                 case "DateTime":
-                    val = list.Select(it => DateTime.Parse(it));
+                    val = list.Select(DateTime.Parse);
                     break;
             }
 
@@ -244,14 +242,14 @@ namespace DynamicExp
         
         private static readonly MethodInfo MethodLike = typeof(DbFunctionsExtensions).GetMethods().Single(m => m.Name == nameof(DbFunctionsExtensions.Like)
                                                                         && m.GetParameters().Length == 3);
-        private static Expression GetSqlLikeExp<T>(PropertyInfo propInfo, string constraint, MemberExpression property) => Expression.Call(
+        private static Expression GetSqlLikeExp(string constraint, MemberExpression property) => Expression.Call(
                       MethodLike,
                       Expression.Constant(EF.Functions),
                       property,
                       Expression.Constant(constraint)
                       );
 
-        private static Expression GetLikeExp<T>(PropertyInfo propInfo, string constraint, MemberExpression property)
+        private static Expression GetLikeExp(string constraint, MemberExpression property)
         {
             int len = constraint.Length, flag = 0;
             string query = constraint;
