@@ -1,4 +1,5 @@
 ﻿using Microsoft.EntityFrameworkCore;
+using System;
 using System.Linq.Expressions;
 using System.Reflection;
 using System.Text;
@@ -10,6 +11,17 @@ namespace DynamicExp
 
     public static class ExpressionBuilder
     {
+        
+
+        /// <summary>
+        /// Filters a sequence of values based on a specified condition string.
+        /// </summary>
+        /// <typeparam name="T">The type of elements in the sequence.</typeparam>
+        /// <param name="data">The sequence of values to filter.</param>
+        /// <param name="str">The condition string to filter the sequence.</param>
+        /// <param name="isSql">A flag indicating whether the condition string is SQL syntax. Default is false.</param>
+        /// <param name="relationalProps">Optional relational properties to consider in the condition.</param>
+        /// <returns>An <see cref="IEnumerable{T}"/> that contains elements from the input sequence that satisfy the condition.</returns>
         public static IEnumerable<T> Where<T>(this IEnumerable<T> data, string str, bool isSql = false, params string[] relationalProps)
         {
             ExpressionBuilder.isSql = isSql;
@@ -18,7 +30,17 @@ namespace DynamicExp
                    where predicate(value)
                    select value;
         }
-        public static IQueryable<T> Where<T>(this IQueryable<T> query, string str, bool isSql=false, params string[] relationalProps)
+
+        /// <summary>
+        /// Filters the elements of an <see cref="IQueryable{T}"/> based on a specified condition string.
+        /// </summary>
+        /// <typeparam name="T">The type of elements in the IQueryable.</typeparam>
+        /// <param name="query">The IQueryable to filter.</param>
+        /// <param name="str">The condition string to filter the IQueryable.</param>
+        /// <param name="isSql">A flag indicating whether the condition string is SQL syntax. Default is false.</param>
+        /// <param name="relationalProps">Optional relational properties to consider in the condition.</param>
+        /// <returns>An IQueryable that contains elements from the input sequence that satisfy the condition.</returns>
+        public static IQueryable<T> Where<T>(this IQueryable<T> query, string str, bool isSql = false, params string[] relationalProps)
         {
             ExpressionBuilder.isSql = isSql;
             return query.Where<T>(GetExpression<T>(str, relationalProps));
@@ -39,6 +61,12 @@ namespace DynamicExp
                 {
                     switch (item)
                     {
+                        case "not":
+                            if (stack.Count > 0)
+                            {
+                                stack.Push(Expression.Not(stack.Pop()));
+                            }
+                            break;
                         case "or":
                         case "and":
                             if (stack.Count >= 2)
@@ -118,6 +146,23 @@ namespace DynamicExp
             {
                 exps.Add(GetExpression<T>(info, @operator, constraint, paramExpression));
             }
+            else
+            {
+                var cols = colName.Split('.');
+                if(cols.Length == 2)
+                {
+                    colName = cols[1];
+                    info = type.GetProperties(BindingFlags.Instance | BindingFlags.Public).FirstOrDefault(it => it.Name.ToLower() == cols[0]);
+                    if (info != null)
+                    {
+                        var exp = GetExpression<T>(info, paramExpression, @operator, colName, constraint);
+                        if (exp != null)
+                        {
+                            exps.Add(exp);
+                        }
+                    }
+                }
+            }
             foreach (var prop in props)
             {
                 info = type.GetProperty(prop);
@@ -146,25 +191,27 @@ namespace DynamicExp
             string colName, string constraint)
         {
             var property = Expression.Property(paramExpression, info.Name);
+            
             var childInfo = info.PropertyType.GetProperties(BindingFlags.Instance | BindingFlags.Public).FirstOrDefault(it => it.Name.ToLower() == colName);
             if (childInfo == null)
             {
                 return null;
             }
+            BinaryExpression nullCheck = Expression.NotEqual(property, Expression.Constant(null, typeof(object)));
             var childProperty = Expression.Property(property, childInfo);
             if (@operator == "in")
             {
-                return GetInExp<T>(childInfo, constraint, childProperty);
+                return Expression.AndAlso(nullCheck, GetInExp(childInfo, constraint, childProperty));
             }
             if (@operator == "like")
             {
-                return !isSql ? GetLikeExp(constraint, childProperty): GetSqlLikeExp(constraint, childProperty);
+                return Expression.AndAlso(nullCheck, !isSql ? GetLikeExp(constraint, childProperty): GetSqlLikeExp(constraint, childProperty));
             }
             var constantExpression = GetConstantExpression(childInfo.PropertyType.Name, constraint);
 
             var expression = GetBinaryExpression(childProperty, @operator, constantExpression);
 
-            return expression;
+            return Expression.AndAlso(nullCheck, expression);
         }
         private static Expression GetExpression<T>(PropertyInfo info, string @operator, string constraint, ParameterExpression paramExpression)
         {
@@ -172,7 +219,7 @@ namespace DynamicExp
 
             if (@operator == "in")
             {
-                return GetInExp<T>(info, constraint, property);
+                return GetInExp(info, constraint, property);
             }
             if (@operator == "like")
             {
@@ -210,7 +257,7 @@ namespace DynamicExp
                 _ => Expression.Equal(Expression.Constant(1), Expression.Constant(1)),
             };
         }
-        private static Expression GetInExp<T>(PropertyInfo propInfo, string constraint, MemberExpression property)
+        private static Expression GetInExp(PropertyInfo propInfo, string constraint, MemberExpression property)
         {
             var list = constraint.Split(',').Select(it => it.Trim());
             object val = list;
@@ -387,8 +434,11 @@ namespace DynamicExp
             {
                 switch (item)
                 {
+                    case "not":
+                    case "NOT":
+                    case "Not":
                     case "(":
-                        stack.Push(item);
+                        stack.Push(item.ToLower());
                         break;
                     case "AND":
                     case "And":
@@ -437,8 +487,5 @@ namespace DynamicExp
         private static bool isSql = false;
         
     }
-    public enum LikeOperatorMode
-    {
-        Sql, InMemory
-    }
+   
 }

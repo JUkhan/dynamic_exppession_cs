@@ -2,45 +2,170 @@
 
 using DynamicExp.Data;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Migrations;
+using System.Linq;
+using System.Linq.Expressions;
+using System.Text.RegularExpressions;
 
 
 namespace DynamicExp;
 
-record User(string firstName, int age, int postalCode, Address address);
+record User(string firstName, int age, int postalCode, Address? address=null);
 record Address(string location, int postalCode);
-record SDS(string content, string? segment = null, string? appName = null);
+record SDS(string query, Action action);
+record Action(bool view, bool add, bool edit, bool delete);
+public class HierarchyNodeName
+{
+    public string Name { get; set; }
+}
+public class HierarchyNodeType
+{
+    public string Name { get; set; }
+}
+public class RelationshipHierarchy
+{
+    public int Id { get; set; }
+    public string Name { get; set; }
+    public virtual HierarchyNodeName HierarchyNodeName { get; set; }
+    public virtual HierarchyNodeType HierarchyNodeType { get; set; }
+    public virtual Relationship Relationship { get; set; }
+}
+public class Relationship
+{
+    public string Name { get; set; }
+
+    public virtual ICollection<RelationshipHierarchy> RelationshipHierarchies { get; set; }
+}
 
 class Program
 {
 
+    public static List<Relationship> GetRelations()
+    {
+        return new List<Relationship>
+        {
+            new Relationship
+            {
+                Name = "cnt hamas",
+                RelationshipHierarchies= new List<RelationshipHierarchy>
+                {
+                    new RelationshipHierarchy
+                    {
+                        Id = 1,
+                        HierarchyNodeName=new HierarchyNodeName{Name="Bangladesh"},
+                        HierarchyNodeType=new HierarchyNodeType{Name="country"},
+                        Relationship=new Relationship{Name="cnt hamas"}
+                    },
+                    new RelationshipHierarchy
+                    {
+                        Id = 2,
+                        HierarchyNodeName=new HierarchyNodeName{Name="India"},
+                        HierarchyNodeType=new HierarchyNodeType{Name="country"},
+                        Relationship=new Relationship{Name="cnt hamas"}
+                    },
+                    new RelationshipHierarchy
+                    {
+                        Id = 3,
+                        HierarchyNodeName=new HierarchyNodeName{Name="Dhaka"},
+                        HierarchyNodeType=new HierarchyNodeType{Name="division"},
+                        Relationship=new Relationship{Name="cnt hamas"}
+                    },
+                    new RelationshipHierarchy
+                    {
+                        Id = 4,
+                        HierarchyNodeName=new HierarchyNodeName{Name="Rajshahi"},
+                        HierarchyNodeType=new HierarchyNodeType{Name="division"},
+                        Relationship=new Relationship{Name="cnt hamas"}
+                    },
+                    new RelationshipHierarchy
+                    {
+                        Id = 5,
+                        HierarchyNodeName=new HierarchyNodeName{Name="Chittagong"},
+                        HierarchyNodeType=new HierarchyNodeType{Name="division"},
+                        Relationship=new Relationship{Name="cnt hamas"}
+                    },
+                }
+            },
+            new Relationship
+            {
+                Name = "ccc",
+                RelationshipHierarchies= new List<RelationshipHierarchy>
+                {
+                    new RelationshipHierarchy
+                    {
+                        Id = 6,
+                        HierarchyNodeName=new HierarchyNodeName{Name="US"},
+                        HierarchyNodeType=new HierarchyNodeType{Name="country"}
+                    },
+                    new RelationshipHierarchy
+                    {
+                        Id = 7,
+                        HierarchyNodeName=new HierarchyNodeName{Name="CA"},
+                        HierarchyNodeType=new HierarchyNodeType{Name="country"}
+                    },
+                    new RelationshipHierarchy
+                    {
+                        Id = 8,
+                        HierarchyNodeName=new HierarchyNodeName{Name="Dhaka"},
+                        HierarchyNodeType=new HierarchyNodeType{Name="division"}
+                    },
+                    new RelationshipHierarchy
+                    {
+                        Id = 9,
+                        HierarchyNodeName=new HierarchyNodeName{Name="Rajshahi"},
+                        HierarchyNodeType=new HierarchyNodeType{Name="division"}
+                    },
+                    new RelationshipHierarchy
+                    {
+                        Id = 10,
+                        HierarchyNodeName=new HierarchyNodeName{Name="Chittagong"},
+                        HierarchyNodeType=new HierarchyNodeType{Name="division"}
+                    },
+                }
+            },
+
+        };
+    }
     public static void SampleExample()
     {
+        //var rgex = new Regex("__NodeName|__NodeType");
+        //Console.WriteLine(rgex.Matches("__RelationShipName like cnt% and __NodeType = country").Count);
+        var svc = new SDSPoliceService();
+        Console.WriteLine(svc.GetQuery(SDSPoliceService.EntityName.None, it=>it.view));
+        svc.CheckPermissionForRelationship(it=>it.view && it.add, it=>it.Name.StartsWith("cnt"));
+        svc.CheckPermissionForRelationshipHierarchy(it => it.view && it.delete, it => it.Id==5);
         var list = new List<User>
             {
                new User("Talha", 12, 1,  new Address("loc1", 101)),
-               new User("jasim khan", 23, 2, new Address("loc2", 101)),
-               new User("arif", 18, 3, new Address("loc2", 103)),
+               new User("jasim khan", 23, 2, new Address("loc2", 102)),
+               new User("arif", 18, 3),
 
             };
-        var listSDS = new List<SDS>
+        foreach(var it in list.Where("not(address.postalCode in(101,103))", false))
+        {
+            Console.WriteLine(it);
+        }
+       
+
+        var data = GetRelations().AsQueryable();
+        //data = data.Where(it => it.Name.Contains("cnt"));
+        
+        foreach (var item in data)
+        {
+            Console.WriteLine($"{item.Name}");
+            foreach (var h in item.RelationshipHierarchies)
             {
-                //new SDS("  first_name =  \"jasim khan\" "),
-                //new SDS("age <= 20 AND first_name = arif"),
-                //new SDS("age in ( 12, 18)"),
-                //new SDS("first_name In(\"jasim\", arif)"),
-                //new SDS("postalCode IN (1, 103)"),
-                //new SDS("postalCode=1")
-                new SDS("  first_name LIKE  tal% "),
-            };
-
-        var query = String.Join(" Or ", listSDS.Select(it => $"({it.content})"));
-
-
-        foreach (var item in list.Where(query))
+                Console.WriteLine($"{h.HierarchyNodeType.Name}-{h.HierarchyNodeName.Name}");
+            }
+        }
+        //Expression.AndAlso()
+        var dx = Enumerable.Range(1, 10);
+        dx = dx.Where(it => !(it > 5)||it==2);
+        Console.WriteLine(dx.Any(it=>it==9));
+        foreach (var item in dx)
         {
             Console.WriteLine(item);
         }
-
 
     }
     
@@ -48,23 +173,34 @@ class Program
     static void Main(string[] args)
     {
         SampleExample();
-        InitData();
+        //InitData();
         //QueryFromDatabase();
+    }
+    static List<string> GetSDS()
+    {
+        return new List<string>
+        {
+            "__productName in (Laptop) or __price<20",
+            "__orderFirst_Name = abdur",
+            "age in (20,30)"
+        };
     }
     static void QueryFromDatabase()
     {
        
         using var db = new DataContext();
-
-        foreach (var item in db.Products.Where("name like lap%", isSql:true))
+        //var sdsQuery = ExpressionBuilder.MapSDS(GetSDS(), "__product");
+        //Console.WriteLine(sdsQuery);
+        foreach (var item in db.Products.ToList().Where("NAME=Mobile Or price in(12,19)"))
         {
             Console.WriteLine($"{item.Name} - {item.Price}");
         }
-
-        foreach (var item in db.Orders.Include(t => t.Customer).Where("first_name = abdur", relationalProps: "Customer"))
-        {
-            Console.WriteLine($"{item.Customer.FirstName} - {item.Customer.LastName}");
-        }
+        //sdsQuery = ExpressionBuilder.MapSDS(GetSDS(), "__order");
+        //foreach (var item in db.Orders.Include(it=>it.Customer))
+        //{
+        //    Console.WriteLine($"{item.Customer.FirstName} - {item.Customer.LastName}");
+        //}
+        
     }
     static void InitData()
     {
