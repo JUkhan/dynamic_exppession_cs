@@ -1,12 +1,6 @@
 ﻿
 
 using DynamicExp.Data;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Migrations;
-using System.Linq;
-using System.Linq.Expressions;
-using System.Text.RegularExpressions;
-
 
 namespace DynamicExp;
 
@@ -131,8 +125,8 @@ class Program
         //var rgex = new Regex("__NodeName|__NodeType");
         //Console.WriteLine(rgex.Matches("__RelationShipName like cnt% and __NodeType = country").Count);
         var svc = new SDSPoliceService();
-        Console.WriteLine(svc.GetQuery(SDSPoliceService.EntityName.None, it=>it.view));
-        svc.CheckPermissionForRelationship(it=>it.view && it.add, it=>it.Name.StartsWith("cnt"));
+        Console.WriteLine(svc.GetQuery(SDSPoliceService.EntityName.DataMart, it=>it.view));
+        svc.CheckPermissionForRelationship(it=>it.view && it.add, it=>it.Name.StartsWith("ccc"));
         svc.CheckPermissionForRelationshipHierarchy(it => it.view && it.delete, it => it.Id==5);
         var list = new List<User>
             {
@@ -141,7 +135,7 @@ class Program
                new User("arif", 18, 3),
 
             };
-        foreach(var it in list.Where("not(address.postalCode in(101,103))", false))
+        foreach(var it in list.Where("address.postalCode not in(101,103)", false))
         {
             Console.WriteLine(it);
         }
@@ -150,22 +144,17 @@ class Program
         var data = GetRelations().AsQueryable();
         //data = data.Where(it => it.Name.Contains("cnt"));
         
-        foreach (var item in data)
+        foreach (var item in svc.GetRelationships())
         {
             Console.WriteLine($"{item.Name}");
-            foreach (var h in item.RelationshipHierarchies)
-            {
-                Console.WriteLine($"{h.HierarchyNodeType.Name}-{h.HierarchyNodeName.Name}");
-            }
+            
         }
-        //Expression.AndAlso()
-        var dx = Enumerable.Range(1, 10);
-        dx = dx.Where(it => !(it > 5)||it==2);
-        Console.WriteLine(dx.Any(it=>it==9));
-        foreach (var item in dx)
+
+        foreach (var h in svc.GetRelationshipHierarchies())
         {
-            Console.WriteLine(item);
+            Console.WriteLine($"{h.HierarchyNodeType.Name}-{h.HierarchyNodeName.Name}");
         }
+        
 
     }
     

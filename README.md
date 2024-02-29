@@ -1,7 +1,7 @@
 # dynamic_expression_cs
 dynamic linq expression from string literal
 
-Supported Operators: `=` `<` `<=` `>` `>=` `In` `Like`, `And` `Or` and operators could be `all lower case`/`all upper case`/`title case` example: `in`/`IN`/`In`
+Supported Operators: `=` `<` `<=` `>` `>=` `In` `Like`, `And` `Or` `not` and operators could be `all lower case`/`all upper case`/`title case` example: `in`/`IN`/`In`
 
 
 
@@ -19,27 +19,7 @@ firstname="jasim khan" And age < 20
 ```
 For single word `"` `"` is optional but must for multiple words like `"jasim khan"`
 
-Please look at the following  entities both has the  `postalCode` property and `address` prop in `User` has the instance of `Address`.
-```c#
-record User(string firstName, int age, int postalCode, Address address );
-record Address(string location, int postalCode);
-```
-```c#
-var list = new List<User>
-            {
-               new User("Talha", 12, 1,  new Address("loc1", 101)),
-               new User("jasim khan", 23, 2, new Address("loc2", 101)),
-               new User("arif", 18, 3, new Address("loc2", 103)),
 
-            };
-```
-if you have query like `var query = "postalCode IN (1, 103)"` and run `list.Where(query)`, you have single result `User { firstName = Talha, age = 12, postalCode = 1, address = Address { location = loc1, postalCode = 101 } }`
-
-What about `postalCode 103` which exist in `Address`(Fortunately `Where()` method takes two params `Where(string query, params string[] relationalProps)`)? Here `address` is a relational props. If you need to search any thing from relational entities, please pass them to the second params like `list.Where(query, "address")`. Now your result will have two items one from user itself and another one from address
-```
-User { firstName = Talha, age = 12, postalCode = 1, address = Address { location = loc1, postalCode = 101 } }
-User { firstName = arif, age = 18, postalCode = 3, address = Address { location = loc2, postalCode = 103 } }
-```
 ## Example
 ```c#
 

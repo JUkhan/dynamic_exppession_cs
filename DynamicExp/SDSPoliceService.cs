@@ -17,11 +17,12 @@ namespace DynamicExp
             Polices = new List<SDS>
             {
                new SDS("STATE_CODE in ('NJ', 'NY','PA')", new Action(true, false, false, false)),
-               new SDS("__RelationShipName like cnt%", new Action(true, true, false,false)),
-               new SDS("__RelationShipName like cnt% and __NodeType = country", new Action(true, true, true,false)),
-               new SDS("__RelationShipName like cnt% and __NodeType = division and __NodeName = Dhaka", new Action(true, true, false,true)),
-               new SDS("__RelationShipName like cnt% and __NodeType = division and __NodeName = Rajshahi", new Action(true, false, true,false)),
-               new SDS("__RelationShipName like cnt% and __NodeType = division and __NodeName = Chittagong", new Action(true, false, false,true)),
+               new SDS("__RelationShipName like cnt%", new Action(false, true, false,false)),
+               new SDS("__RelationShipName = ccc", new Action(true, true, false,false)),
+               new SDS("__RelationShipName like cnt% and __NodeType = 'country'", new Action(true, true, true,false)),
+               new SDS("__RelationShipName like cnt% and __NodeType = 'division' and __NodeName = Dhaka", new Action(true, true, false,true)),
+               new SDS("__RelationShipName like cnt% and __NodeType = 'division' and __NodeName = Rajshahi", new Action(true, false, true,false)),
+               new SDS("__RelationShipName like cnt% and __NodeType = 'division' and __NodeName = Chittagong", new Action(true, false, false,true)),
             };
         }
        
@@ -72,7 +73,7 @@ namespace DynamicExp
             Func<Relationship, bool> itemPredicate,
             string messege = "You have no permission")
         {
-            var coll = GetRelationships().Where(GetQuery(EntityName.Relationship, actionPredicate));
+            var coll = GetRawRelationships().Where(GetQuery(EntityName.Relationship, actionPredicate));
             
             if (!coll.Any(itemPredicate))
             {
@@ -85,24 +86,32 @@ namespace DynamicExp
             Func<RelationshipHierarchy, bool> itemPredicate,
             string messege = "You have no permission")
         {
-            var coll = GetRelationshipHierarchies().Where(GetQuery(EntityName.RelationshipHierarchy, actionPredicate));
+            var coll = GetRawRelationshipHierarchies().Where(GetQuery(EntityName.RelationshipHierarchy, actionPredicate));
 
             if (!coll.Any(itemPredicate))
             {
                 throw new Exception(messege);
             }
         }
+        public IQueryable<Relationship> GetRelationships()
+        {
+            return GetRawRelationships().Where(GetQuery(EntityName.Relationship, action=>action.view));
+        }
+        public IQueryable<RelationshipHierarchy> GetRelationshipHierarchies()
+        {
+            return GetRawRelationshipHierarchies().Where(GetQuery(EntityName.RelationshipHierarchy, action=>action.view));
+        }
 
-        private IQueryable<Relationship> GetRelationships()
+        private IQueryable<Relationship> GetRawRelationships()
         {
             return Program.GetRelations().AsQueryable();
         }
-        private IQueryable<RelationshipHierarchy> GetRelationshipHierarchies()
+        private IQueryable<RelationshipHierarchy> GetRawRelationshipHierarchies()
         {
             return Program.GetRelations()[0].RelationshipHierarchies.AsQueryable();
         }
         IEnumerable<SDS> Polices { get; set; }
-        public enum EntityName { Relationship, RelationshipHierarchy, None }
+        public enum EntityName { Relationship, RelationshipHierarchy, DataMart }
     }
    
 }
