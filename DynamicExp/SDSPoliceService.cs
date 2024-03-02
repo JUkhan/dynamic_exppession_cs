@@ -64,34 +64,26 @@ namespace DynamicExp
                 pos.Add($"not({neg})");
             }
             var query = string.Join(" or ", pos);
-            //Console.WriteLine(query);
+            
             return query;
         }
        
         public void CheckPermissionForRelationship(
             Func<Action, bool> actionPredicate,
-            Func<Relationship, bool> itemPredicate,
-            string messege = "You have no permission")
+            Func<Relationship, bool> itemPredicate=null,
+            string messege = "You are not authorized to do this action.")
         {
             var coll = GetRawRelationships().Where(GetQuery(EntityName.Relationship, actionPredicate));
-            
-            if (!coll.Any(itemPredicate))
-            {
-                throw new Exception(messege);
-            }
+            Check<Relationship>(coll, messege, itemPredicate);
         }
 
         public void CheckPermissionForRelationshipHierarchy(
             Func<Action, bool> actionPredicate,
-            Func<RelationshipHierarchy, bool> itemPredicate,
-            string messege = "You have no permission")
+            Func<RelationshipHierarchy, bool> itemPredicate=null,
+            string messege = "You are not authorized to do this action.")
         {
             var coll = GetRawRelationshipHierarchies().Where(GetQuery(EntityName.RelationshipHierarchy, actionPredicate));
-
-            if (!coll.Any(itemPredicate))
-            {
-                throw new Exception(messege);
-            }
+            Check<RelationshipHierarchy>(coll, messege, itemPredicate);
         }
         public IQueryable<Relationship> GetRelationships()
         {
@@ -102,14 +94,35 @@ namespace DynamicExp
             return GetRawRelationshipHierarchies().Where(GetQuery(EntityName.RelationshipHierarchy, action=>action.view));
         }
 
+        private void Check<T>(IQueryable<T> collection, string messege, Func<T, bool> predicate = null)
+        {
+            Exception exception = new Exception(messege);
+            if (predicate == null)
+            {
+                if (!collection.Any())
+                {
+                    throw exception;
+                }
+
+                return;
+            }
+
+            if (!collection.Any(predicate))
+            {
+                throw exception;
+            }
+        }
+
         private IQueryable<Relationship> GetRawRelationships()
         {
             return Program.GetRelations().AsQueryable();
         }
+
         private IQueryable<RelationshipHierarchy> GetRawRelationshipHierarchies()
         {
             return Program.GetRelations()[0].RelationshipHierarchies.AsQueryable();
         }
+
         IEnumerable<SDS> Polices { get; set; }
         public enum EntityName { Relationship, RelationshipHierarchy, DataMart }
     }

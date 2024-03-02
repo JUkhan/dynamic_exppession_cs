@@ -79,7 +79,7 @@ namespace DynamicExp
 
                 var stack = new Stack<Expression>();
 
-                int i = 0, len = tokens.Count;
+                int i = 0;
                 foreach (var item in tokens)
                 {
                     switch (item)
@@ -97,13 +97,13 @@ namespace DynamicExp
                             {
                                 var right = stack.Pop();
                                 var left = stack.Pop();
-                                var exp = item == "and" ? Expression.And(left, right) : Expression.Or(left, right);
+                                var exp = item == "and" ? Expression.AndAlso(left, right) : Expression.OrElse(left, right);
                                 stack.Push(exp);
                             }
 
                             break;
                         case "=":
-                        case "==":
+                        case "<>":
                         case "<":
                         case ">":
                         case "<=":
@@ -245,7 +245,7 @@ namespace DynamicExp
          @operator switch
          {
              "=" => Expression.Equal(property, constantExpression),
-             "==" => Expression.Equal(property, constantExpression),
+             "<>" => Expression.NotEqual(property, constantExpression),
              "<" => Expression.LessThan(property, constantExpression),
              "<=" => Expression.LessThanOrEqual(property, constantExpression),
              ">" => Expression.GreaterThan(property, constantExpression),
@@ -506,7 +506,7 @@ namespace DynamicExp
 
         private static readonly MethodInfo MethodLike = typeof(DbFunctionsExtensions).GetMethods().Single(m => m.Name == nameof(DbFunctionsExtensions.Like) && m.GetParameters().Length == 3);
 
-        private static bool isSql = true;
+        private static bool isSql = false;
     }
- 
+
 }

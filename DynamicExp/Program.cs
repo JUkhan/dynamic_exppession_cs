@@ -126,7 +126,7 @@ class Program
         //Console.WriteLine(rgex.Matches("__RelationShipName like cnt% and __NodeType = country").Count);
         var svc = new SDSPoliceService();
         Console.WriteLine(svc.GetQuery(SDSPoliceService.EntityName.DataMart, it=>it.view));
-        svc.CheckPermissionForRelationship(it=>it.view && it.add, it=>it.Name.StartsWith("ccc"));
+        svc.CheckPermissionForRelationship(action=> action.view && action.add);
         svc.CheckPermissionForRelationshipHierarchy(it => it.view && it.delete, it => it.Id==5);
         var list = new List<User>
             {
@@ -135,7 +135,7 @@ class Program
                new User("arif", 18, 3),
 
             };
-        foreach(var it in list.Where("address.postalCode not in(101,103)", false))
+        foreach(var it in list.Where("firstname not like tal%", false))
         {
             Console.WriteLine(it);
         }
