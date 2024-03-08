@@ -1,7 +1,7 @@
 # dynamic_expression_cs
 dynamic linq expression from string literal
 
-Supported Operators: `=` `<` `<=` `>` `>=` `In` `Like`, `And` `Or` `not` and operators could be `all lower case`/`all upper case`/`title case` example: `in`/`IN`/`In`
+Supported Operators: `=` `<` `<=` `>` `>=` `In` `Like`, `Between`, `And` `Or` `not` and operators could be `all lower case`/`all upper case`/`title case` example: `in`/`IN`/`In`
 
 
 

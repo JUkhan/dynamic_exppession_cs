@@ -1,8 +1,12 @@
 ﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Metadata.Internal;
 using System;
+using System.Collections.Generic;
+using System.Data;
 using System.Linq.Expressions;
 using System.Reflection;
 using System.Text;
+using System.Xml.Linq;
 
 
 namespace DynamicExp
@@ -118,6 +122,14 @@ namespace DynamicExp
                             }
 
                             break;
+                        case "between":
+                            var colName2 = tokens[i - 3].Replace("_", string.Empty).ToLower();
+                            var exp2 = GetBetweenExpression<T>(colName2, tokens[i - 2], tokens[i - 1], paramExpression);
+                            if (exp2 != null)
+                            {
+                                stack.Push(exp2);
+                            }
+                            break;
                     }
 
                     i++;
@@ -162,11 +174,102 @@ namespace DynamicExp
                     info = type.GetProperties(BindingFlags.Instance | BindingFlags.Public).FirstOrDefault(it => it.Name.ToLower() == cols[0]);
                     if (info != null)
                     {
-                        var exp = GetExpression(info, paramExpression, @operator, colName, constraint);
-                        if (exp != null)
+                        return GetExpression(info, paramExpression, @operator, colName, constraint);
+                        
+                    }
+                }
+            }
+
+            return null;
+        }
+
+        private static Expression BetweenOtherTypeHelper(PropertyInfo info, string start, string end, MemberExpression member)
+        {
+            switch (info.PropertyType.Name)
+            {
+                case "Int32":
+                    return Expression.AndAlso(GetBinaryExpression(member, ">=", Expression.Constant(int.Parse(start))), GetBinaryExpression(member, "<=", Expression.Constant(int.Parse(end))));
+
+                case "Int64":
+                    return Expression.AndAlso(GetBinaryExpression(member, ">=", Expression.Constant(long.Parse(start))), GetBinaryExpression(member, "<=", Expression.Constant(long.Parse(end))));
+                case "Single":
+                    return Expression.AndAlso(GetBinaryExpression(member, ">=", Expression.Constant(float.Parse(start))), GetBinaryExpression(member, "<=", Expression.Constant(float.Parse(end))));
+                case "Double":
+                    return Expression.AndAlso(GetBinaryExpression(member, ">=", Expression.Constant(double.Parse(start))), GetBinaryExpression(member, "<=", Expression.Constant(double.Parse(end))));
+                case "Decimal":
+                    return Expression.AndAlso(GetBinaryExpression(member, ">=", Expression.Constant(decimal.Parse(start))), GetBinaryExpression(member, "<=", Expression.Constant(decimal.Parse(end))));
+                case "DateTime":
+                    return Expression.AndAlso(GetBinaryExpression(member, ">=", Expression.Constant(DateTime.Parse(start))), GetBinaryExpression(member, "<=", Expression.Constant(DateTime.Parse(end))));
+            }
+            return null;
+        }
+        private static Expression BetweenStringHelper(PropertyInfo info, string start, string end, MemberExpression property)
+        {
+            if (isSql)
+            {
+                return Expression.OrElse(GetSqlLikeExp(start + "%", property), GetSqlLikeExp(end + "%", property));
+            }
+            var startCon = GetConstantExpression(info.PropertyType.Name, start);
+            var endCon = GetConstantExpression(info.PropertyType.Name, end);
+            var ignoreCase = Expression.Constant(true);
+            var zeroCon = Expression.Constant(0);
+
+            var compare1 = Expression.Call(typeof(string),
+                                          "Compare",
+                                          null,
+                                          startCon, property, ignoreCase);
+            var compare2 = Expression.Call(typeof(string),
+                                          "Compare",
+                                          null,
+                                          property, endCon, ignoreCase);
+
+            var left = GetBinaryExpression(compare1, "<=", zeroCon);
+            var right = GetBinaryExpression(compare2, "<=", zeroCon);
+
+            return Expression.AndAlso(left, right);
+        }
+
+        private static Expression BetweenHelper(PropertyInfo info, string start, string end, MemberExpression property)
+        {
+            switch (info.PropertyType.Name)
+            {
+                case "String":
+                    return BetweenStringHelper(info, start, end, property);
+                default:
+                    return BetweenOtherTypeHelper(info, start, end, property);
+            }
+        }
+
+        private static Expression GetBetweenExpression<T>(string colName, string start, string end, ParameterExpression paramExpression)
+        {
+            var type = typeof(T);
+            var info = type.GetProperties(BindingFlags.Instance | BindingFlags.Public).FirstOrDefault(it => it.Name.ToLower() == colName);
+
+            if (info != null)
+            {
+                var property = Expression.Property(paramExpression, info.Name);
+                return BetweenHelper(info, start, end, property);
+            }
+            else
+            {
+                var cols = colName.Split('.');
+                if (cols.Length == 2)
+                {
+                    colName = cols[1];
+                    info = type.GetProperties(BindingFlags.Instance | BindingFlags.Public).FirstOrDefault(it => it.Name.ToLower() == cols[0]);
+                    if (info != null)
+                    {
+                        var property = Expression.Property(paramExpression, info.Name);
+                        BinaryExpression nullCheck = Expression.NotEqual(property, Expression.Constant(null, typeof(object)));
+                        info = info.PropertyType.GetProperties(BindingFlags.Instance | BindingFlags.Public).FirstOrDefault(it => it.Name.ToLower() == colName);
+                        if (info == null)
                         {
-                            return exp;
+                            return null;
                         }
+                        var childProperty = Expression.Property(property, info);
+
+                        return Expression.AndAlso(nullCheck, BetweenHelper(info, start, end, childProperty));
+
                     }
                 }
             }
@@ -241,7 +344,7 @@ namespace DynamicExp
                    _ => Expression.Constant(constraint, typeof(string))
                };
 
-        private static BinaryExpression GetBinaryExpression(MemberExpression property, string @operator, ConstantExpression constantExpression) =>
+        private static BinaryExpression GetBinaryExpression(Expression property, string @operator, ConstantExpression constantExpression) =>
          @operator switch
          {
              "=" => Expression.Equal(property, constantExpression),
@@ -455,8 +558,15 @@ namespace DynamicExp
                     case "OR":
                     case "Or":
                     case "or":
+
                         if (stack.Count > 0)
                         {
+                            string between = "";
+                            stack.TryPeek(out between!);
+                            if (between.Equals("between"))
+                            {
+                                continue;
+                            }
                             res.Add(stack.Pop());
                         }
                         stack.Push(item.ToLower());
@@ -473,6 +583,9 @@ namespace DynamicExp
                     case "LIKE":
                     case "Like":
                     case "like":
+                    case "Between":
+                    case "between":
+                    case "BETWEEN":
                         stack.Push(item.ToLower());
                         break;
                     case ")":

@@ -1,10 +1,13 @@
 ﻿
 
 using DynamicExp.Data;
+using Microsoft.EntityFrameworkCore;
+using System.Linq.Expressions;
+using System.Reflection;
 
 namespace DynamicExp;
 
-record User(string firstName, int age, int postalCode, Address? address=null);
+record User(string firstName, int age, int postalCode, Address? address = null);
 record Address(string location, int postalCode);
 record SDS(string query, Action action);
 record Action(bool view, bool add, bool edit, bool delete);
@@ -125,9 +128,9 @@ class Program
         //var rgex = new Regex("__NodeName|__NodeType");
         //Console.WriteLine(rgex.Matches("__RelationShipName like cnt% and __NodeType = country").Count);
         var svc = new SDSPoliceService();
-        Console.WriteLine(svc.GetQuery(SDSPoliceService.EntityName.DataMart, it=>it.view));
-        svc.CheckPermissionForRelationship(action=> action.view && action.add);
-        svc.CheckPermissionForRelationshipHierarchy(it => it.view && it.delete, it => it.Id==5);
+        Console.WriteLine(svc.GetQuery(SDSPoliceService.EntityName.DataMart, it => it.view));
+        svc.CheckPermissionForRelationship(action => action.view && action.add);
+        svc.CheckPermissionForRelationshipHierarchy(it => it.view && it.delete, it => it.Id == 5);
         var list = new List<User>
             {
                new User("Talha", 12, 1,  new Address("loc1", 101)),
@@ -135,35 +138,55 @@ class Program
                new User("arif", 18, 3),
 
             };
-        foreach(var it in list.Where("firstname not like tal%", false))
+        foreach (var it in list.Where("firstname not like tal%", false))
         {
             Console.WriteLine(it);
         }
-       
+
 
         var data = GetRelations().AsQueryable();
         //data = data.Where(it => it.Name.Contains("cnt"));
-        
+
         foreach (var item in svc.GetRelationships())
         {
             Console.WriteLine($"{item.Name}");
-            
+
         }
 
         foreach (var h in svc.GetRelationshipHierarchies())
         {
             Console.WriteLine($"{h.HierarchyNodeType.Name}-{h.HierarchyNodeName.Name}");
         }
-        
+
 
     }
-    
+
 
     static void Main(string[] args)
     {
-        SampleExample();
+        //SampleExample();
         //InitData();
-        //QueryFromDatabase();
+        QueryFromDatabase();
+        var names = new List<string>
+        {
+            "prod1",
+            "Abc",//1
+            "Karate",//1
+            "Mobile",//-1
+            "Laptop",//0
+            "Telivision",
+            "Sugar"
+            
+        };
+        Console.WriteLine("-------");
+        foreach (var name in names)
+        {
+           // Console.WriteLine($"Karate {string.Compare("Karate", name)}, {name} Mobile {string.Compare("Mobile", name)} {name}");
+            if ( string.Compare("laptop", name, true) <= 0 && string.Compare(name, "mobile", true) <= 0) {
+                // Console.WriteLine($"Karate {string.Compare("Karate", name)}, {name} Mobile {string.Compare("Mobile", name)} {name}");
+                Console.WriteLine(name);
+            }
+        }
     }
     static List<string> GetSDS()
     {
@@ -176,20 +199,20 @@ class Program
     }
     static void QueryFromDatabase()
     {
-       
+        
         using var db = new DataContext();
         //var sdsQuery = ExpressionBuilder.MapSDS(GetSDS(), "__product");
         //Console.WriteLine(sdsQuery);
-        foreach (var item in db.Products.ToList().Where("NAME=Mobile Or price in(12,19)"))
+        foreach (var item in db.Products.Where("id Between 3 and 5", true))
         {
-            Console.WriteLine($"{item.Name} - {item.Price}");
+            Console.WriteLine($"{item.Id} {item.Name} - {item.Price}");
         }
         //sdsQuery = ExpressionBuilder.MapSDS(GetSDS(), "__order");
-        //foreach (var item in db.Orders.Include(it=>it.Customer))
-        //{
-        //    Console.WriteLine($"{item.Customer.FirstName} - {item.Customer.LastName}");
-        //}
-        
+        foreach (var item in db.Orders.Include(it=>it.Customer).Where("Customer.Id between 1 and 2"))
+        {
+            Console.WriteLine($"{item.Customer.Id} {item.Customer.FirstName} - {item.Customer.LastName}");
+        }
+
     }
     static void InitData()
     {
