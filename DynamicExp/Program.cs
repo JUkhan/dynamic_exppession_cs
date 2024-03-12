@@ -160,33 +160,35 @@ class Program
 
 
     }
+    
+    static void meeting()
+    {
+        var query = "(firstName  like 'abdu%' and age<21) or address.postal_code between 1 and 5";
+        var user = new User(firstName: "abdulla", age: 21, postalCode: 2,
+            address:new Address(location:"aasas", postalCode:5));
+        var predicate = ExpressionBuilder.GetExpression<User>(query, false).Compile();
+        Console.WriteLine(predicate(user));
 
-
+        var data = new List<User>
+        {
+             new User(firstName: "abdulla", age: 21, postalCode: 2,address:new Address(location:"aasas", postalCode:3)),
+             new User(firstName: "arif", age: 21, postalCode: 7,address:new Address(location:"aasas", postalCode:5))
+        };
+        foreach (var item in data.Where(query))
+        {
+            Console.WriteLine(item);
+        }
+       
+    }
+    
     static void Main(string[] args)
     {
         //SampleExample();
         //InitData();
-        QueryFromDatabase();
-        var names = new List<string>
-        {
-            "prod1",
-            "Abc",//1
-            "Karate",//1
-            "Mobile",//-1
-            "Laptop",//0
-            "Telivision",
-            "Sugar"
-            
-        };
-        Console.WriteLine("-------");
-        foreach (var name in names)
-        {
-           // Console.WriteLine($"Karate {string.Compare("Karate", name)}, {name} Mobile {string.Compare("Mobile", name)} {name}");
-            if ( string.Compare("laptop", name, true) <= 0 && string.Compare(name, "mobile", true) <= 0) {
-                // Console.WriteLine($"Karate {string.Compare("Karate", name)}, {name} Mobile {string.Compare("Mobile", name)} {name}");
-                Console.WriteLine(name);
-            }
-        }
+        //QueryFromDatabase();
+        meeting();
+        
+        
     }
     static List<string> GetSDS()
     {
