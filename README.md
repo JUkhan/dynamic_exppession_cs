@@ -9,18 +9,16 @@ It takes `Column Name`/ `Property Name` as case insensitive and also allowed sna
 
 ## Example
 ```
-firstName = jasim
-first_name Like jasim%
-name IN (jasim, ripon, "abdur rahman")
-FIRST_NAME="jasim"
-firstname="jasim khan" And age < 20
-(firstname="jasim khan" And age < 20) OR (postal_code = 1270)
+firstName = 'jasim'
+first_name Like 'jasim%'
+name IN ('jasim', 'ripon', 'abdur rahman')
+FIRST_NAME='jasim'
+firstname='jasim khan' And age < 20
+(firstname='jasim khan' And age < 20) OR (postal_code = 1270)
 
 ```
-For single word `"` `"` is optional but must for multiple words like `"jasim khan"`
 
-
-## Example
+## C# Example
 ```c#
 
 var query = "(firstName  like 'abdu%' and age<21) or address.postal_code between 1 and 5";
