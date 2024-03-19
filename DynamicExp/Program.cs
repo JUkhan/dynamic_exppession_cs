@@ -163,7 +163,7 @@ class Program
     
     static void meeting()
     {
-        var query = "(firstName  like 'abdu%' and age<21) or address.postal_code between 1 and 5";
+        var query = "(firstName  ilike 'abdu%' and age<21) or address.postal_code between 1 and 5";
         var user = new User(firstName: "abdulla", age: 21, postalCode: 2,
             address:new Address(location:"aasas", postalCode:5));
         var predicate = ExpressionBuilder.GetExpression<User>(query, false).Compile();

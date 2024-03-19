@@ -1,13 +1,8 @@
 ﻿using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Metadata.Internal;
-using System;
-using System.Collections.Generic;
 using System.Data;
 using System.Linq.Expressions;
 using System.Reflection;
 using System.Text;
-using System.Xml.Linq;
-
 
 namespace DynamicExp
 {
@@ -41,14 +36,14 @@ namespace DynamicExp
         /// <param name="isSql">A flag indicating whether the condition string is SQL syntax. Default is false.</param>
         /// <returns>An IQueryable that contains elements from the input sequence that satisfy the condition.</returns>
         public static IQueryable<T> Where<T>(this IQueryable<T> query, string str, bool isSql = false) => query.Where<T>(GetExpression<T>(str, isSql));
-       
+
         /// <summary>
-        /// like operator for in memory operation.
+        /// Performs a case-insensitive "like" comparison between two strings based on the specified LikeMode.
         /// </summary>
-        /// <param name="source">source.</param>
-        /// <param name="find">find.</param>
-        /// <param name="flag">flag</param>
-        /// <returns>a bool value.</returns>
+        /// <param name="source">The source string to compare.</param>
+        /// <param name="find">The string to find within the source string.</param>
+        /// <param name="likeMode">The mode of comparison, specifying how the find string should match the source string.</param>
+        /// <returns>True if the strings match based on the specified LikeMode; otherwise, false.</returns>
         public static bool Like(string source, string find, LikeMode likeMode)
         {
            
@@ -589,11 +584,13 @@ namespace DynamicExp
                     case "<=":
                     case ">=":
                     case "in":
+                    case "between":
+                        stack.Push(lowercaseItem);
+                        break;
+
                     case "like":
                     case "ilike":
-                    case "between":
-
-                        stack.Push(lowercaseItem);
+                        stack.Push("like");
                         break;
                     case ")":
                         while (stack.Count > 0)
