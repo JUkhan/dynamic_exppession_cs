@@ -174,7 +174,7 @@ class Program
              new User(firstName: "abdulla", age: 21, postalCode: 2,address:new Address(location:"aasas", postalCode:3)),
              new User(firstName: "arif", age: 21, postalCode: 7,address:new Address(location:"aasas", postalCode:5))
         };
-        foreach (var item in data.Where(query))
+        foreach (var item in data.Where(query, false))
         {
             Console.WriteLine(item);
         }

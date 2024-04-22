@@ -1,8 +1,7 @@
-﻿using Microsoft.EntityFrameworkCore;
-using System.Data;
-using System.Linq.Expressions;
+﻿using System.Linq.Expressions;
 using System.Reflection;
 using System.Text;
+using Microsoft.EntityFrameworkCore;
 
 namespace DynamicExp
 {
@@ -16,12 +15,12 @@ namespace DynamicExp
         /// </summary>
         /// <typeparam name="T">The type of elements in the sequence.</typeparam>
         /// <param name="data">The sequence of values to filter.</param>
-        /// <param name="str">The condition string to filter the sequence.</param>
+        /// <param name="query">The condition string to filter the sequence.</param>
         /// <param name="isSql">A flag indicating whether the condition string is SQL syntax. Default is false.</param>
         /// <returns>An <see cref="IEnumerable{T}"/> that contains elements from the input sequence that satisfy the condition.</returns>
-        public static IEnumerable<T> Where<T>(this IEnumerable<T> data, string str, bool isSql = false)
+        public static IEnumerable<T> Where<T>(this IEnumerable<T> data, string query, bool isSql = true)
         {
-            var predicate = GetExpression<T>(str, isSql).Compile();
+            var predicate = GetExpression<T>(query, isSql).Compile();
             return from T value in data
                    where predicate(value)
                    select value;
@@ -35,7 +34,7 @@ namespace DynamicExp
         /// <param name="str">The condition string to filter the IQueryable.</param>
         /// <param name="isSql">A flag indicating whether the condition string is SQL syntax. Default is false.</param>
         /// <returns>An IQueryable that contains elements from the input sequence that satisfy the condition.</returns>
-        public static IQueryable<T> Where<T>(this IQueryable<T> query, string str, bool isSql = false) => query.Where<T>(GetExpression<T>(str, isSql));
+        public static IQueryable<T> Where<T>(this IQueryable<T> query, string str, bool isSql = true) => query.Where<T>(GetExpression<T>(str, isSql));
 
         /// <summary>
         /// Performs a case-insensitive "like" comparison between two strings based on the specified LikeMode.
@@ -46,7 +45,6 @@ namespace DynamicExp
         /// <returns>True if the strings match based on the specified LikeMode; otherwise, false.</returns>
         public static bool Like(string source, string find, LikeMode likeMode)
         {
-           
             if (likeMode == LikeMode.Contains)
             {
                 return source.Contains(find, StringComparison.CurrentCultureIgnoreCase);
@@ -112,7 +110,7 @@ namespace DynamicExp
                         case ">=":
                         case "in":
                         case "like":
-                            var binaryExp = GetExpression<T>(tokens[i - 2].Replace("_", string.Empty).ToLower(), item.ToLower(), tokens[i - 1], paramExpression);
+                            var binaryExp = GetExpression<T>(tokens[i - 2].Replace("_", string.Empty).ToLower(), item, tokens[i - 1], paramExpression);
                             if (binaryExp != null)
                             {
                                 stack.Push(binaryExp);
@@ -171,7 +169,6 @@ namespace DynamicExp
                     if (info != null)
                     {
                         return GetExpression(info, paramExpression, @operator, colName, constraint);
-
                     }
                 }
             }
@@ -197,27 +194,24 @@ namespace DynamicExp
                 case "DateTime":
                     return Expression.AndAlso(GetBinaryExpression(member, ">=", Expression.Constant(DateTime.Parse(start))), GetBinaryExpression(member, "<=", Expression.Constant(DateTime.Parse(end))));
             }
+
             return null;
         }
+
         private static Expression BetweenStringHelper(PropertyInfo info, string start, string end, MemberExpression property)
         {
             if (isSql)
             {
                 return Expression.OrElse(GetSqlLikeExp(start + "%", property), GetSqlLikeExp(end + "%", property));
             }
+
             var startCon = GetConstantExpression(info.PropertyType.Name, start);
             var endCon = GetConstantExpression(info.PropertyType.Name, end);
             var ignoreCase = Expression.Constant(true);
             var zeroCon = Expression.Constant(0);
 
-            var compare1 = Expression.Call(typeof(string),
-                                          "Compare",
-                                          null,
-                                          startCon, property, ignoreCase);
-            var compare2 = Expression.Call(typeof(string),
-                                          "Compare",
-                                          null,
-                                          property, endCon, ignoreCase);
+            var compare1 = Expression.Call(typeof(string), "Compare", null, startCon, property, ignoreCase);
+            var compare2 = Expression.Call(typeof(string), "Compare", null, property, endCon, ignoreCase);
 
             var left = GetBinaryExpression(compare1, "<=", zeroCon);
             var right = GetBinaryExpression(compare2, "<=", zeroCon);
@@ -262,10 +256,10 @@ namespace DynamicExp
                         {
                             return null;
                         }
+
                         var childProperty = Expression.Property(property, info);
 
                         return Expression.AndAlso(nullCheck, BetweenHelper(info, start, end, childProperty));
-
                     }
                 }
             }
@@ -413,13 +407,12 @@ namespace DynamicExp
             }
 
             var like = typeof(ExpressionBuilder).GetMethod("Like")!;
-         
+
             var exp = Expression.Call(
                       like,
                       property,
                       Expression.Constant(query),
-                      Expression.Constant(likeMode)
-                      );
+                      Expression.Constant(likeMode));
             return exp;
         }
 
@@ -434,6 +427,11 @@ namespace DynamicExp
             if (str[curIndex + 1] == '=')
             {
                 tokens.Add(ch.ToString() + "=");
+                curIndex++;
+            }
+            else if (str[curIndex + 1] == '>')
+            {
+                tokens.Add(ch.ToString() + ">");
                 curIndex++;
             }
             else
@@ -478,7 +476,6 @@ namespace DynamicExp
                                         sb.Append(str[i + 1]);
                                         i++;
                                     }
-
                                 }
                                 else
                                 {
@@ -523,14 +520,18 @@ namespace DynamicExp
                     case '\'':
                         i++;
                         sb.Append('"');
-                        while (i < len && !(str[i] == '\''))
+                        while (i < len && str[i] != '\'')
                         {
                             sb.Append(str[i]);
                             i++;
                         }
+
                         sb.Append('"');
                         tokens.Add(sb.ToString());
                         sb.Clear();
+                        break;
+                    case '\r':
+                    case '\n':
                         break;
                     default:
                         sb.Append(ch);
@@ -567,14 +568,16 @@ namespace DynamicExp
 
                         if (stack.Count > 0)
                         {
-                            string between = "";
+                            string between = string.Empty;
                             stack.TryPeek(out between!);
                             if (between.Equals("between"))
                             {
                                 continue;
                             }
+
                             res.Add(stack.Pop());
                         }
+
                         stack.Push(lowercaseItem);
                         break;
                     case "=":
@@ -584,10 +587,10 @@ namespace DynamicExp
                     case "<=":
                     case ">=":
                     case "in":
+                    case "<>":
                     case "between":
                         stack.Push(lowercaseItem);
                         break;
-
                     case "like":
                     case "ilike":
                         stack.Push("like");
