@@ -628,7 +628,7 @@ namespace DynamicExp
 
             return res;
         }
-        static int Priority(string @operator)
+        private static int Priority(string @operator)
         {
             return @operator switch
             {
