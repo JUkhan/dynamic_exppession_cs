@@ -1,5 +1,6 @@
 ﻿using System.Linq.Expressions;
 using System.Reflection;
+using System.Runtime.CompilerServices;
 using System.Text;
 using Microsoft.EntityFrameworkCore;
 
@@ -575,7 +576,16 @@ namespace DynamicExp
                                 continue;
                             }
 
-                            res.Add(stack.Pop());
+                            if (stack.Peek() == "(")
+                            {
+                                stack.Push(lowercaseItem);
+                                continue;
+                            }
+
+                            while (stack.Count > 0 && (Priority(lowercaseItem) >= Priority(stack.Peek())))
+                            {
+                                res.Add(stack.Pop());
+                            }
                         }
 
                         stack.Push(lowercaseItem);
@@ -618,7 +628,17 @@ namespace DynamicExp
 
             return res;
         }
-
+        static int Priority(string @operator)
+        {
+            return @operator switch
+            {
+                "not" => 1,
+                "and" => 2,
+                "or" => 2,
+                "(" => 4,
+                _ => 0
+            };
+        }
         private static readonly MethodInfo MethodContains = typeof(Enumerable).GetMethods(
                         BindingFlags.Static | BindingFlags.Public)
                         .Single(m => m.Name == nameof(Enumerable.Contains)
